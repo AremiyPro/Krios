@@ -157,6 +157,6 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
 // Запуск единого сервера
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`[Backend] Сервер успешно запущен на порту ${PORT}`);
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Index.html'));
 });
