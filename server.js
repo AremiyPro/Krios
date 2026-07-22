@@ -35,11 +35,11 @@ db.connect((err) => {
 });
 
 // Конфигурация CryptoBot и RCON
-const CRYPTO_BOT_TOKEN = 'ТВОЙ_НАСТОЯЩИЙ_ДЛИННЫЙ_ТОКЕН_ИЗ_CRYPTO_PAY';
+const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
-    host: '127.0.0.1', // Если сайт и сервер на одном VPS, иначе IP твоего игрового сервера
-    port: 25575,       // Стандартный порт RCON (проверь в server.properties)
-    password: 'j0vjLPoers'
+    host: '62.217.107.777', // Если сайт и сервер на одном VPS, иначе IP твоего игрового сервера
+    port: 25600,       // Стандартный порт RCON (проверь в server.properties)
+    password: 'j0vjLaYrEMUQ'
 };
 
 // ==========================================
