@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KriosWorld — Магазин привилегий</title>
+    <link rel="icon" type="image/jpeg" href="Foto/Logo.jpg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="top-banner">
+        <img src="Foto/base64.png" alt="KriosWorld Banner">
+        <div class="ip-online-badge" onclick="copyIP()" title="Нажмите, чтобы скопировать IP">
+            🟢 Онлайн: 0/100<br><span class="ip-text">IP mc.kriosworld.net</span>
+        </div>
+    </div>
+
+    <section class="hero">
+        <h1>KriosWorld.net</h1>
+        <p>Выбери необходимую привилегию или товар для закупки на сервере</p>
+    </section>
+
+    <main class="main-layout">
+        <div class="currency-box">
+            <div class="currency-info">
+                <h3>Покупка донатной валюты</h3>
+                <p>Курс: 1 ₽ = 2 донатной валюты</p>
+            </div>
+            <div class="currency-form">
+                <input type="number" id="rillyAmount" value="500" min="10">
+                <button class="btn-buy-gold" onclick="openModal('Донатная валюта', document.getElementById('rillyAmount').value)">Купить</button>
+            </div>
+        </div>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" onclick="setCategory('privileges', this)">Привилегии</button>
+            <button class="mode-btn" onclick="setCategory('cases', this)">Донат-кейсы</button>
+            <button class="mode-btn" onclick="setCategory('other', this)">Прочее</button>
+        </div>
+
+        <h2 class="section-title" id="categoryTitle">Список привилегий</h2>
+        <div class="products-grid" id="productsRow">
+            <!-- Товары рендерятся через JavaScript -->
+        </div>
+    </main>
+
+    <div class="modal-backdrop" id="buyModal" onclick="closeModalOnBackdrop(event)">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <h3 class="modal-title">Оформление покупки</h3>
+            <form id="checkoutForm">
+                <div class="form-group">
+                    <label>Игровой никнейм</label>
+                    <input type="text" id="donorName" placeholder="Введите ваш никнейм" required>
+                </div>
+                <div class="form-group">
+                    <label>Электронная почта</label>
+                    <input type="email" id="donorEmail" placeholder="Введите электронную почту" required>
+                </div>
+                <div class="form-group">
+                    <label>Выбранный товар</label>
+                    <input type="text" id="selectedItemName" value="" readonly>
+                </div>
+                <!-- Поле с ценой скрыто, игроки видят её на сайте -->
+                <button type="submit" class="btn-checkout" id="submitBtn">Оплатить товар</button>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-left">
+                <div class="footer-text">
+                    <p><strong>© 2026 KriosWorld Все права защищены.</strong></p>
+                    <p>KriosWorld не связан с Mojang AB.</p>
+                    <p>Все средства идут на развитие проекта.</p>
+                    <p>Коммерческая деятельность проекта соответствует политике Mojang AB.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Договор Оферты</a>
+                    <a href="#">Политика обработки персональных данных</a>
+                </div>
+            </div>
+
+            <div class="footer-right">
+                <a href="https://vk.com" target="_blank" class="social-btn" title="ВКонтакте">
+                    <svg viewBox="0 0 24 24"><path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93v6.14C2 20.67 3.33 22 8.93 22h6.14c5.6 0 6.93-1.33 6.93-6.93V8.93C22 3.33 20.67 2 15.07 2zm3.28 13.72h-1.62c-.61 0-.8-.49-1.89-1.58-1-.97-1.44-1.1-1.69-1.1-.35 0-.45.1-.45.58v1.51c0 .39-.13.62-1.16.62-1.7 0-3.58-1.03-4.91-2.95-2-2.82-2.55-4.94-2.55-5.38 0-.24.09-.46.54-.46h1.62c.4 0 .56.18.72.61.78 2.27 2.09 4.26 2.63 4.26.2 0 .29-.09.29-.59V9.12c-.08-1.06-.62-1.15-.62-1.53 0-.18.15-.37.39-.37h2.54c.34 0 .47.18.47.58v3.13c0 .34.15.46.25.46.2 0 .37-.12.74-.49 1.15-1.3 1.96-3.32 1.96-3.32.11-.24.29-.46.69-.46h1.62c.49 0 .6.25.49.59-.2 0.94-2.18 3.76-2.18 3.76-.17.27-.24.39 0 .71.18.24.77.75 1.17 1.21.73.83 1.29 1.53 1.44 2.01.15.46-.07.7-.56.7z"/></svg>
+                </a>
+                <a href="https://discord.com" target="_blank" class="social-btn" title="Discord">
+                    <svg viewBox="0 0 24 24"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.061 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.028zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg>
+                </a>
+                <a href="https://t.me" target="_blank" class="social-btn" title="Telegram">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                </a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
