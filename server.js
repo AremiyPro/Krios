@@ -45,18 +45,11 @@ const RCON_CONFIG = {
 // ==========================================
 // 1. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
 // ==========================================
-app.post('/api/donate', (req, res) => {
-    const { username, email, item, amount } = req.body;
-
-    db.query('SELECT * FROM defaultdb.limboauth_users WHERE username = ?', [username], async (err, results) => {
-        if (err) {
-            console.error('[MySQL Error]:', err);
-            return res.status(500).json({ error: 'Ошибка сервера при проверке игрока' });
-        }
-
-        if (results.length === 0) {
-            return res.status(400).json({ error: 'Аккаунт с таким ником не зарегистрирован на сервере!' });
-        }
+// Временно отключили проверку игрока
+app.post('/check-player', async (req, res) => {
+    // Просто возвращаем успех или заглушку, чтобы кнопка на сайте не ломалась
+    res.json({ success: true, message: "Проверка временно отключена" });
+});
 
         // Определяем консольную команду для выдачи
         let command = '';
