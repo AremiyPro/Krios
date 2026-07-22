@@ -48,7 +48,7 @@ const RCON_CONFIG = {
 app.post('/api/donate', (req, res) => {
     const { username, email, item, amount } = req.body;
 
-    db.query('SELECT * FROM players WHERE username = ?', [username], async (err, results) => {
+    db.query('SELECT * FROM limboauth_users WHERE username = ?', [username], async (err, results) => {
         if (err) {
             console.error('[MySQL Error]:', err);
             return res.status(500).json({ error: 'Ошибка сервера при проверке игрока' });
