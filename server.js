@@ -37,20 +37,24 @@ db.connect((err) => {
 // Конфигурация CryptoBot и RCON
 const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
-    host: '62.217.107.777', // Если сайт и сервер на одном VPS, иначе IP твоего игрового сервера
-    port: 25600,       // Стандартный порт RCON (проверь в server.properties)
+    host: '62.217.107.777', // IP твоего туннеля (например, playit.gg или ngrok)
+    port: 25600,       // Порт RCON из server.properties
     password: 'j0vjLaYrEMUQ'
 };
 
 // ==========================================
-// 1. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
 // ==========================================
-
-// Временно отключили проверку игрока
 app.post('/check-player', async (req, res) => {
-    // Просто возвращаем успех или заглушку, чтобы кнопка на сайте не ломалась
     res.json({ success: true, message: "Проверка временно отключена" });
 });
+
+// ==========================================
+// 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// ==========================================
+app.post('/create-invoice', async (req, res) => {
+    try {
+        const { username, email, item, amount } = req.body;
 
         // Определяем консольную команду для выдачи
         let command = '';
@@ -64,57 +68,53 @@ app.post('/check-player', async (req, res) => {
         else if (item.includes('Размут')) command = `unmute ${username}`;
         else command = `eco give ${username} ${amount}`;
 
-        // Сначала создаем инвойс в CryptoBot, чтобы получить ссылку на оплату
-        try {
-            // Переводим рубли в USDT (примерно по курсу или передавай сумму в USD, если сайт считает в долларах)
-            // Допустим, amount — это рубли. Переведем в USD грубо по курсу (или передавай amount_usd с фронтенда)
-            const amountUsd = (amount / 95).toFixed(2); // Примерный курс рубля к USDT, лучше передавать сразу в USD
+        // Переводим рубли в USDT (примерно по курсу)
+        const amountUsd = (amount / 95).toFixed(2);
 
-            const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-                asset: 'USDT',
-                amount: amountUsd > 0 ? amountUsd : '1.00',
-                description: `Покупка ${item} для ${username}`,
-                payload: JSON.stringify({ username, item, command }),
-                paid_btn_name: 'callback',
-                paid_btn_url: 'https://твой-сайт.com/success'
-            }, {
-                headers: {
-                    'Crypto-Pay-API-Token': CRYPTO_BOT_TOKEN,
-                    'Content-Type': 'application/json'
-                }
-            });
+        const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
+            asset: 'USDT',
+            amount: amountUsd > 0 ? amountUsd : '1.00',
+            description: `Покупка ${item} для ${username}`,
+            payload: JSON.stringify({ username, item, command }),
+            paid_btn_name: 'callback',
+            paid_btn_url: 'https://krios-3gzc.onrender.com/success'
+        }, {
+            headers: {
+                'Crypto-Pay-API-Token': CRYPTO_BOT_TOKEN,
+                'Content-Type': 'application/json'
+            }
+        });
 
-            if (!cryptoResponse.data.ok) {
-                return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
+        if (!cryptoResponse.data.ok) {
+            return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
+        }
+
+        const paymentUrl = cryptoResponse.data.result.pay_url;
+
+        // Записываем покупку в базу данных со статусом pending
+        const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, "pending", NOW())';
+        
+        db.query(insertQuery, [username, email, item, amount, command], (err, result) => {
+            if (err) {
+                console.error('[MySQL Error]:', err);
+                return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            const paymentUrl = cryptoResponse.data.result.pay_url;
-
-            // Записываем покупку в базу данных со статусом pending
-            const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, "pending", NOW())';
-            
-            db.query(insertQuery, [username, email, item, amount, command], (err, result) => {
-                if (err) {
-                    console.error('[MySQL Error]:', err);
-                    return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
-                }
-
-                // Возвращаем игроку ссылку на оплату в CryptoBot
-                res.json({ 
-                    success: true,
-                    url: paymentUrl 
-                });
+            // Возвращаем игроку ссылку на оплату в CryptoBot
+            res.json({ 
+                success: true,
+                url: paymentUrl 
             });
+        });
 
-        } catch (error) {
-            console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
-            res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
-        }
-    });
+    } catch (error) {
+        console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
+    }
 });
 
 // ==========================================
-// 2. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
+// 3. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
 // ==========================================
 app.post('/api/crypto-webhook', async (req, res) => {
     const update = req.body;
@@ -128,7 +128,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             console.log(`[CryptoBot] Оплата получена! Игрок: ${username}, товар: ${item}`);
 
-            // Подключаемся к Java-серверу через RCON для выдачи доната
+            // Подключаемся к серверу через RCON для выдачи доната
             const rcon = await Rcon.connect(RCON_CONFIG);
             
             if (command) {
@@ -149,7 +149,6 @@ app.post('/api/crypto-webhook', async (req, res) => {
     res.status(200).send('OK');
 });
 
-// Запуск единого сервера
 // Обработка главной страницы
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'Index.html'));
