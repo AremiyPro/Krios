@@ -42,35 +42,38 @@ const RCON_CONFIG = {
     password: 'j0vjLaYrEMUQ'
 };
 
-// ==========================================
-// 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
-// ==========================================
+// Предварительно: npm install rcon-client
+const { Rcon } = require('rcon-client');
+
 app.post('/check-player', async (req, res) => {
     const { username } = req.body;
 
     if (!username) {
-        return res.status(400).json({ success: false, message: "Укажите ник игрока" });
+        return res.status(400).json({ success: false, message: "Укажите ник" });
     }
 
     try {
-        // Предполагаем, что у тебя используется mysql2 с поддержкой промисов (pool)
-        // Замени 'users' и 'is_online' на свои реальные названия таблицы и колонок
-        const [rows] = await pool.query('SELECT is_online FROM users WHERE username = ?', [username]);
+        // Подключаемся к игровому серверу
+        const rcon = await Rcon.connect({
+            host: "195.201.204.247",
+            port: 25575, // Порт RCON
+            password: "j0vjLaYrEMUQ"
+        });
 
-        if (rows.length === 0) {
-            return res.json({ success: false, message: "Игрок с таким ником не найден" });
-        }
+        // Отправляем команду списка игроков (пример для Minecraft)
+        const response = await rcon.send("list");
+        rcon.end();
 
-        const isOnline = rows[0].is_online === 1; // или true, зависит от типа данных в БД
-
-        if (isOnline) {
+        // Ответ обычно выглядит как: "There are 1 of a max of 20 players online: AremiyPro"
+        // Проверяем, есть ли ник в ответе
+        if (response.includes(username)) {
             return res.json({ success: true, message: "Игрок онлайн", online: true });
         } else {
             return res.json({ success: false, message: "Игрок оффлайн", online: false });
         }
     } catch (error) {
-        console.error("Ошибка при проверке игрока в БД:", error);
-        return res.status(500).json({ success: false, message: "Ошибка сервера при проверке" });
+        console.error("Ошибка RCON:", error);
+        return res.status(500).json({ success: false, message: "Не удалось связаться с игровым сервером" });
     }
 });
 
