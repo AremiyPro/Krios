@@ -56,25 +56,51 @@ app.post('/create-invoice', async (req, res) => {
     try {
         const { username, email, item, amount } = req.body;
 
-        // Определяем консольную команду для выдачи
+        // Валидация входных данных
+        if (!username || !item || !amount) {
+            return res.status(400).json({ error: 'Не заполнены обязательные поля' });
+        }
+
+        // Полная карта команд для привилегий, кейсов и услуг
         let command = '';
-        if (item === 'VIP') command = `lp user ${username} parent add vip`;
-        else if (item === 'PREMIUM') command = `lp user ${username} parent add premium`;
-        else if (item === 'DELUXE') command = `lp user ${username} parent add deluxe`;
-        else if (item === 'ENERGY') command = `lp user ${username} parent add energy`;
-        else if (item === 'HYBRID') command = `lp user ${username} parent add hybrid`;
-        else if (item.includes('Кейс')) command = `crates givekey ${username} ${item} 1`;
-        else if (item.includes('Разбан')) command = `unban ${username}`;
-        else if (item.includes('Размут')) command = `unmute ${username}`;
-        else command = `eco give ${username} ${amount}`;
+        switch (item) {
+            case 'VIP':
+                command = `lp user ${username} parent add vip`;
+                break;
+            case 'PREMIUM':
+                command = `lp user ${username} parent add premium`;
+                break;
+            case 'DELUXE':
+                command = `lp user ${username} parent add deluxe`;
+                break;
+            case 'ENERGY':
+                command = `lp user ${username} parent add energy`;
+                break;
+            case 'HYBRID':
+                command = `lp user ${username} parent add hybrid`;
+                break;
+            default:
+                if (item.includes('Кейс')) {
+                    command = `crates givekey ${username} ${item} 1`;
+                } else if (item.includes('Разбан')) {
+                    command = `unban ${username}`;
+                } else if (item.includes('Размут')) {
+                    command = `unmute ${username}`;
+                } else {
+                    command = `eco give ${username} ${amount}`;
+                }
+                break;
+        }
 
-        // Переводим рубли в USDT (примерно по курсу)
-        const amountUsd = (amount / 95).toFixed(2);
+        // Конвертируем рубли в USDT (курс ~95, с защитой от нулевой суммы)
+        const numericAmount = parseFloat(amount) || 10;
+        const amountUsd = (numericAmount / 95).toFixed(2);
 
+        // Запрос к CryptoBot API
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
             asset: 'USDT',
             amount: amountUsd > 0 ? amountUsd : '1.00',
-            description: `Покупка ${item} для ${username}`,
+            description: `Покупка ${item} для игрока ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
             paid_btn_url: 'https://krios-3gzc.onrender.com/success'
@@ -86,23 +112,27 @@ app.post('/create-invoice', async (req, res) => {
         });
 
         if (!cryptoResponse.data.ok) {
+            console.error('[CryptoBot Error]:', cryptoResponse.data);
             return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
         }
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
-        // Записываем покупку в базу данных со статусом pending
-        const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+        // Безопасная запись в базу данных со статусом pending
+        const insertQuery = `
+            INSERT INTO purchases (username, email, item, amount, command, status, date) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
         
-        db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err, result) => {
+        db.query(insertQuery, [username, email || 'нет', item, numericAmount, command, 'pending'], (err, result) => {
             if (err) {
                 console.error('[MySQL Error]:', err);
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            // Возвращаем игроку ссылку на оплату в CryptoBot
+            // Возвращаем клиенту ссылку на оплату
             res.json({ 
-                success: true,
+                success: true, 
                 url: paymentUrl 
             });
         });
@@ -128,7 +158,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             console.log(`[CryptoBot] Оплата получена! Игрок: ${username}, товар: ${item}`);
 
-            // Подключаемся к серверу через RCON для выдачи доната
+            // Подключаемся к игровому серверу через RCON
             const rcon = await Rcon.connect(RCON_CONFIG);
             
             if (command) {
@@ -139,7 +169,12 @@ app.post('/api/crypto-webhook', async (req, res) => {
             await rcon.end();
 
             // Обновляем статус в базе данных на completed
-            db.query("UPDATE purchases SET status = 'completed' WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1", [username, 'pending']);
+            const updateQuery = "UPDATE purchases SET status = 'completed' WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1";
+            db.query(updateQuery, [username, 'pending'], (dbErr) => {
+                if (dbErr) {
+                    console.error('[MySQL Update Error]:', dbErr);
+                }
+            });
 
         } catch (err) {
             console.error('[RCON Error] Ошибка при выдаче доната на сервер:', err);
