@@ -194,6 +194,6 @@ app.get('/admin-give', async (req, res) => {
 
     } catch (error) {
         console.error("[RCON Admin Error]:", error);
-        return res.status(500).send("<h1>Ошибка подключения к RCON. Смотри логи консоли Render.</h1>");
+        return res.status(500).send("<h1>Ага хер ты угадал, иди смотри консольку.</h1>");
     }
 });
