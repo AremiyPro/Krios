@@ -37,7 +37,7 @@ db.connect((err) => {
 // Конфигурация CryptoBot и RCON
 const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
-    host: '195.201.204.247', // IP твоего туннеля (например, playit.gg или ngrok)
+    host: '31.57.117.1:32723', // IP твоего туннеля (например, playit.gg или ngrok)
     port: 25575,       // Порт RCON из server.properties
     password: 'j0vjLaYrEMUQ'
 };
@@ -180,7 +180,7 @@ app.get('/admin-give', async (req, res) => {
     try {
         // Подключаемся к серверу по RCON
         const rcon = await Rcon.connect({
-            host: '195.201.204.247', // IP твоего туннеля (например, playit.gg или ngrok)
+            host: '31.57.117.1:32723', // IP твоего туннеля (например, playit.gg или ngrok)
             port: 25575,       // Порт RCON из server.properties
             password: 'j0vjLaYrEMUQ'
         });
