@@ -43,7 +43,6 @@ const RCON_CONFIG = {
 };
 
 // Предварительно: npm install rcon-client
-const { Rcon } = require('rcon-client');
 
 app.post('/check-player', async (req, res) => {
     const { username } = req.body;
