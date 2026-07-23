@@ -56,12 +56,11 @@ app.post('/create-invoice', async (req, res) => {
     try {
         const { username, email, item, amount } = req.body;
 
-        // Валидация входных данных
         if (!username || !item || !amount) {
             return res.status(400).json({ error: 'Не заполнены обязательные поля' });
         }
 
-        // Полная карта команд для привилегий, кейсов и услуг
+        // Определяем консольную команду для выдачи
         let command = '';
         switch (item) {
             case 'VIP':
@@ -92,14 +91,15 @@ app.post('/create-invoice', async (req, res) => {
                 break;
         }
 
-        // Конвертируем рубли в USDT (курс ~95, с защитой от нулевой суммы)
+        // Берем чистые рубли из формы (например, 230 или 569)
         const numericAmount = parseFloat(amount) || 10;
-        const amountUsd = (numericAmount / 95).toFixed(2);
 
-        // Запрос к CryptoBot API
+        // Запрос к CryptoBot API в режиме фиата (RUB)
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            asset: 'USDT',
-            amount: amountUsd > 0 ? amountUsd : '1.00',
+            currency_type: 'fiat',                  // Указываем, что сумма в фиатной валюте
+            fiat: 'RUB',                            // Валюта — российские рубли
+            amount: numericAmount,                  // Передаем точную сумму в рублях
+            accepted_assets: ['USDT', 'TON', 'BTC', 'ETH', 'USDC'], // Доступные монеты для оплаты
             description: `Покупка ${item} для игрока ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
@@ -118,7 +118,7 @@ app.post('/create-invoice', async (req, res) => {
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
-        // Безопасная запись в базу данных со статусом pending
+        // Записываем покупку в базу данных со статусом pending
         const insertQuery = `
             INSERT INTO purchases (username, email, item, amount, command, status, date) 
             VALUES (?, ?, ?, ?, ?, ?, NOW())
@@ -130,7 +130,7 @@ app.post('/create-invoice', async (req, res) => {
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            // Возвращаем клиенту ссылку на оплату
+            // Возвращаем игроку ссылку на оплату в CryptoBot
             res.json({ 
                 success: true, 
                 url: paymentUrl 
