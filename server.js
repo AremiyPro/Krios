@@ -42,38 +42,11 @@ const RCON_CONFIG = {
     password: 'j0vjLaYrEMUQ'
 };
 
-// Предварительно: npm install rcon-client
-
+// ==========================================
+// 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
+// ==========================================
 app.post('/check-player', async (req, res) => {
-    const { username } = req.body;
-
-    if (!username) {
-        return res.status(400).json({ success: false, message: "Укажите ник" });
-    }
-
-    try {
-        // Подключаемся к игровому серверу
-        const rcon = await Rcon.connect({
-            host: "195.201.204.247",
-            port: 25575, // Порт RCON
-            password: "j0vjLaYrEMUQ"
-        });
-
-        // Отправляем команду списка игроков (пример для Minecraft)
-        const response = await rcon.send("list");
-        rcon.end();
-
-        // Ответ обычно выглядит как: "There are 1 of a max of 20 players online: AremiyPro"
-        // Проверяем, есть ли ник в ответе
-        if (response.includes(username)) {
-            return res.json({ success: true, message: "Игрок онлайн", online: true });
-        } else {
-            return res.json({ success: false, message: "Игрок оффлайн", online: false });
-        }
-    } catch (error) {
-        console.error("Ошибка RCON:", error);
-        return res.status(500).json({ success: false, message: "Не удалось связаться с игровым сервером" });
-    }
+    res.json({ success: true, message: "Проверка временно отключена" });
 });
 
 // ==========================================
@@ -186,4 +159,45 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Backend] Сервер успешно запущен на порту ${PORT}`);
+});
+
+// Секретный маршрут для владельца (выдача через RCON без денег)
+app.get('/admin-give', async (req, res) => {
+    // Берем пароль и команду прямо из ссылки
+    const { secret, cmd } = req.query;
+
+    // СЕКРЕТНЫЙ ПАРОЛЬ (придумай свой и впиши сюда, чтобы никто другой не мог использовать)
+    const MY_SECRET_PASSWORD = "super_admin_secret_123";
+
+    if (secret !== MY_SECRET_PASSWORD) {
+        return res.status(403).send("<h1>Доступ запрещен. Неверный пароль!</h1>");
+    }
+
+    if (!cmd) {
+        return res.status(400).send("<h1>Ошибка: не указана команда (cmd).</h1>");
+    }
+
+    try {
+        // Подключаемся к серверу по RCON
+        const rcon = await Rcon.connect({
+            host: '195.201.204.247', // IP твоего туннеля (например, playit.gg или ngrok)
+            port: 25575,       // Порт RCON из server.properties
+            password: 'j0vjLaYrEMUQ'
+        });
+
+        // Отправляем команду
+        const response = await rcon.send(cmd);
+        rcon.end(); // Закрываем соединение
+
+        // Выводим результат прямо в браузер
+        return res.send(`
+            <h2>Успех! Команда отправлена на сервер.</h2>
+            <p><b>Выполнено:</b> ${cmd}</p>
+            <p><b>Ответ от сервера:</b> ${response}</p>
+        `);
+
+    } catch (error) {
+        console.error("[RCON Admin Error]:", error);
+        return res.status(500).send("<h1>Ошибка подключения к RCON. Смотри логи консоли Render.</h1>");
+    }
 });
