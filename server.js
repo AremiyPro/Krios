@@ -46,7 +46,32 @@ const RCON_CONFIG = {
 // 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
 // ==========================================
 app.post('/check-player', async (req, res) => {
-    res.json({ success: true, message: "Проверка временно отключена" });
+    const { username } = req.body;
+
+    if (!username) {
+        return res.status(400).json({ success: false, message: "Укажите ник игрока" });
+    }
+
+    try {
+        // Предполагаем, что у тебя используется mysql2 с поддержкой промисов (pool)
+        // Замени 'users' и 'is_online' на свои реальные названия таблицы и колонок
+        const [rows] = await pool.query('SELECT is_online FROM users WHERE username = ?', [username]);
+
+        if (rows.length === 0) {
+            return res.json({ success: false, message: "Игрок с таким ником не найден" });
+        }
+
+        const isOnline = rows[0].is_online === 1; // или true, зависит от типа данных в БД
+
+        if (isOnline) {
+            return res.json({ success: true, message: "Игрок онлайн", online: true });
+        } else {
+            return res.json({ success: false, message: "Игрок оффлайн", online: false });
+        }
+    } catch (error) {
+        console.error("Ошибка при проверке игрока в БД:", error);
+        return res.status(500).json({ success: false, message: "Ошибка сервера при проверке" });
+    }
 });
 
 // ==========================================
