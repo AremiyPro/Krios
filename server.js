@@ -72,7 +72,7 @@ app.post('/create-invoice', async (req, res) => {
         const amountUsd = (amount / 95).toFixed(2);
 
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            asset: 'USDT',
+            asset: 'RUB',
             amount: amountUsd > 0 ? amountUsd : '1.00',
             description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
