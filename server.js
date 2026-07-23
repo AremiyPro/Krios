@@ -38,7 +38,7 @@ db.connect((err) => {
 const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
     host: '31.57.117.1', // IP твоего туннеля (например, playit.gg или ngrok)
-    port: 25575,       // Порт RCON из server.properties
+    port: 32723,       // Порт RCON из server.properties
     password: 'j0vjLaYrEMUQ'
 };
 
@@ -181,7 +181,7 @@ app.get('/admin-give', async (req, res) => {
         // Подключаемся к серверу по RCON
         const rcon = await Rcon.connect({
             host: '31.57.117.1', // IP твоего туннеля (например, playit.gg или ngrok)
-            port: 25575,       // Порт RCON из server.properties
+            port: 32723,       // Порт RCON из server.properties
             password: 'j0vjLaYrEMUQ'
         });
 
