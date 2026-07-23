@@ -56,11 +56,12 @@ app.post('/create-invoice', async (req, res) => {
     try {
         const { username, email, item, amount } = req.body;
 
+        // Валидация входных данных
         if (!username || !item || !amount) {
             return res.status(400).json({ error: 'Не заполнены обязательные поля' });
         }
 
-        // Определяем консольную команду для выдачи
+        // Полная карта команд для привилегий, кейсов и услуг
         let command = '';
         switch (item) {
             case 'VIP':
@@ -91,14 +92,14 @@ app.post('/create-invoice', async (req, res) => {
                 break;
         }
 
-        // Берем чистые рубли из формы (например, 230 или 569)
+        // Берем сумму прямо из запроса пользователя (например, твои рубли)
         const numericAmount = parseFloat(amount) || 10;
 
-        // Запрос к CryptoBot API в режиме фиата (RUB)
+        // Запрос к CryptoBot API с указанием рублевой зоны (fiat: 'RUB')
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            currency_type: 'fiat',                  // Указываем, что сумма в фиатной валюте
-            fiat: 'RUB',                            // Валюта — российские рубли
-            amount: numericAmount,                  // Передаем точную сумму в рублях
+            currency_type: 'fiat',     // Указываем, что работаем с фиатной валютой
+            fiat: 'RUB',               // Основная валюта — российские рубли
+            amount: numericAmount,     // Передаем точную сумму в рублях (например, 569)
             accepted_assets: ['USDT', 'TON', 'BTC', 'ETH', 'USDC'], // Доступные монеты для оплаты
             description: `Покупка ${item} для игрока ${username}`,
             payload: JSON.stringify({ username, item, command }),
@@ -118,7 +119,7 @@ app.post('/create-invoice', async (req, res) => {
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
-        // Записываем покупку в базу данных со статусом pending
+        // Безопасная запись в базу данных со статусом pending
         const insertQuery = `
             INSERT INTO purchases (username, email, item, amount, command, status, date) 
             VALUES (?, ?, ?, ?, ?, ?, NOW())
@@ -130,7 +131,7 @@ app.post('/create-invoice', async (req, res) => {
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            // Возвращаем игроку ссылку на оплату в CryptoBot
+            // Возвращаем клиенту ссылку на оплату
             res.json({ 
                 success: true, 
                 url: paymentUrl 
