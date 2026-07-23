@@ -68,11 +68,13 @@ app.post('/create-invoice', async (req, res) => {
         else if (item.includes('Размут')) command = `unmute ${username}`;
         else command = `eco give ${username} ${amount}`;
 
-        // Запрос к CryptoBot API в стабильном крипто-формате (USDT)
+        // Переводим рубли в USDT (примерно по курсу)
+        const amountUsd = (amount / 95).toFixed(2);
+
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
             asset: 'USDT',
             amount: amountUsd > 0 ? amountUsd : '1.00',
-            description: `Покупка ${item} для игрока ${username} (${numericAmount} RUB)`,
+            description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
             paid_btn_url: 'https://krios-3gzc.onrender.com/success'
