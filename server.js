@@ -92,9 +92,9 @@ app.post('/create-invoice', async (req, res) => {
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
         // Записываем покупку в базу данных со статусом pending
-        const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, "pending", NOW())';
+        const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, ?, NOW())';
         
-        db.query(insertQuery, [username, email, item, amount, command], (err, result) => {
+        db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err, result) => {
             if (err) {
                 console.error('[MySQL Error]:', err);
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
