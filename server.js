@@ -37,8 +37,8 @@ db.connect((err) => {
 // Конфигурация CryptoBot и RCON
 const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
-    host: '62.217.107.777', // IP твоего туннеля (например, playit.gg или ngrok)
-    port: 25600,       // Порт RCON из server.properties
+    host: '195.201.204.247', // IP твоего туннеля (например, playit.gg или ngrok)
+    port: 25575,       // Порт RCON из server.properties
     password: 'j0vjLaYrEMUQ'
 };
 
