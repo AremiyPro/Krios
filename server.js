@@ -139,7 +139,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
             await rcon.end();
 
             // Обновляем статус в базе данных на completed
-            db.query('UPDATE purchases SET status = "completed" WHERE username = ? AND status = 'pending' ORDER BY id DESC LIMIT 1', [username]);
+            db.query('UPDATE purchases SET status = "completed" WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1', [username, 'pending']);
 
         } catch (err) {
             console.error('[RCON Error] Ошибка при выдаче доната на сервер:', err);
