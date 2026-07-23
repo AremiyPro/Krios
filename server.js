@@ -178,12 +178,8 @@ app.get('/admin-give', async (req, res) => {
     }
 
     try {
-        // Подключаемся к серверу по RCON
-        const rcon = await Rcon.connect({
-            host: '31.57.117.1', // IP твоего туннеля (например, playit.gg или ngrok)
-            port: 32723,       // Порт RCON из server.properties
-            password: 'j0vjLaYrEMUQ'
-        });
+        // Подключаемся к серверу по RCON, используя конфиг из начала файла
+        const rcon = await Rcon.connect(RCON_CONFIG);
 
         // Отправляем команду
         const response = await rcon.send(cmd);
