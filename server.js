@@ -43,25 +43,17 @@ const RCON_CONFIG = {
 };
 
 // ==========================================
-// 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
-// ==========================================
-app.post('/check-player', async (req, res) => {
-    res.json({ success: true, message: "Проверка временно отключена" });
-});
-
-// ==========================================
 // 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
 // ==========================================
 app.post('/create-invoice', async (req, res) => {
     try {
         const { username, email, item, amount } = req.body;
 
-        // Валидация входных данных
         if (!username || !item || !amount) {
             return res.status(400).json({ error: 'Не заполнены обязательные поля' });
         }
 
-        // Полная карта команд для привилегий, кейсов и услуг
+        // Полная карта команд для выдачи
         let command = '';
         switch (item) {
             case 'VIP':
@@ -92,16 +84,15 @@ app.post('/create-invoice', async (req, res) => {
                 break;
         }
 
-        // Берем сумму прямо из запроса пользователя (например, твои рубли)
+        // Переводим рубли в USDT (актуальный курс с запасом ~95-100 рублей за 1 USDT)
         const numericAmount = parseFloat(amount) || 10;
+        const amountUsd = (numericAmount / 95).toFixed(2);
 
-        // Запрос к CryptoBot API с указанием рублевой зоны (fiat: 'RUB')
+        // Запрос к CryptoBot API в стабильном крипто-формате (USDT)
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            currency_type: 'fiat',     // Указываем, что работаем с фиатной валютой
-            fiat: 'RUB',               // Основная валюта — российские рубли
-            amount: numericAmount,     // Передаем точную сумму в рублях (например, 569)
-            accepted_assets: ['USDT', 'TON', 'BTC', 'ETH', 'USDC'], // Доступные монеты для оплаты
-            description: `Покупка ${item} для игрока ${username}`,
+            asset: 'USDT',
+            amount: amountUsd > 0 ? amountUsd : '1.00',
+            description: `Покупка ${item} для игрока ${username} (${numericAmount} RUB)`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
             paid_btn_url: 'https://krios-3gzc.onrender.com/success'
@@ -113,9 +104,36 @@ app.post('/create-invoice', async (req, res) => {
         });
 
         if (!cryptoResponse.data.ok) {
-            console.error('[CryptoBot Error]:', cryptoResponse.data);
+            console.error('[CryptoBot Error details]:', cryptoResponse.data);
             return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
         }
+
+        const paymentUrl = cryptoResponse.data.result.pay_url;
+
+        // Записываем покупку в базу данных со статусом pending
+        const insertQuery = `
+            INSERT INTO purchases (username, email, item, amount, command, status, date) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+        `;
+        
+        db.query(insertQuery, [username, email || 'нет', item, numericAmount, command, 'pending'], (err, result) => {
+            if (err) {
+                console.error('[MySQL Error]:', err);
+                return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
+            }
+
+            // Возвращаем игроку ссылку на оплату в CryptoBot
+            res.json({ 
+                success: true, 
+                url: paymentUrl 
+            });
+        });
+
+    } catch (error) {
+        console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
+    }
+});
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
