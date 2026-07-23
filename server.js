@@ -40,6 +40,7 @@ const RCON_CONFIG = {
     host: '31.57.117.1', // IP твоего туннеля (например, playit.gg или ngrok)
     port: 25575,       // Порт RCON из server.properties
     password: 'j0vjLaYrEMUQ'
+	timeout: 5000
 };
 
 // ==========================================
