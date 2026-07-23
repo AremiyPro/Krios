@@ -100,7 +100,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
     btn.innerText = 'Проверка аккаунта...';
 
     try {
-        const res = await fetch('/api/donate', {
+        const res = await fetch('/create-invoice', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
