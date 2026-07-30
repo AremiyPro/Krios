@@ -58,80 +58,101 @@ function buildMinecraftCommand(username, item, itemId, amount) {
     return `eco give ${username} ${amount * 2}`;
 }
 
-// 1. Создание платежа
+// ==========================================
+// 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// ==========================================
 app.post('/create-invoice', async (req, res) => {
     try {
-        const { username, email, item, itemId, amount } = req.body;
+        const { username, email, item, amount } = req.body;
 
-        if (!username || !email || !amount) {
-            return res.status(400).json({ error: 'Заполните все поля!' });
-        }
+        // Определяем консольную команду для выдачи
+        let command = '';
+        if (item === 'VIP') command = `lp user ${username} parent add vip`;
+        else if (item === 'PREMIUM') command = `lp user ${username} parent add premium`;
+        else if (item === 'DELUXE') command = `lp user ${username} parent add deluxe`;
+        else if (item === 'ENERGY') command = `lp user ${username} parent add energy`;
+        else if (item === 'HYBRID') command = `lp user ${username} parent add hybrid`;
+        else if (item.includes('Кейс')) command = `crates givekey ${username} ${item} 1`;
+        else if (item.includes('Разбан')) command = `unban ${username}`;
+        else if (item.includes('Размут')) command = `unmute ${username}`;
+        else command = `eco give ${username} ${amount}`;
 
-        const command = buildMinecraftCommand(username, item, itemId, amount);
+        // Передаем сумму как есть, без конвертации в USD
         const amountRub = Number(amount).toFixed(2);
 
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            currency_type: 'fiat',
-            fiat: 'RUB',
-            amount: amountRub,
-            description: `Покупка: ${item} (${username})`,
+            currency_type: 'fiat', // Указываем API, что прайс в фиате
+            fiat: 'RUB',           // Выбираем рубли
+            amount: amountRub,     // Передаем рубли (например, '500.00')
+            description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
-            paid_btn_url: 'https://krios-3gzc.onrender.com/'
+            paid_btn_url: 'https://krios-3gzc.onrender.com/success'
         }, {
             headers: {
-                'Crypto-Pay-API-Token': process.env.CRYPTO_BOT_TOKEN,
+                'Crypto-Pay-API-Token': CRYPTO_BOT_TOKEN,
                 'Content-Type': 'application/json'
             }
         });
 
         if (!cryptoResponse.data.ok) {
-            return res.status(400).json({ error: 'Ошибка создания счета в CryptoBot' });
+            return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
         }
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
+        // Записываем покупку в базу данных со статусом pending
         const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, ?, NOW())';
-        db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err) => {
+        
+        db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err, result) => {
             if (err) {
                 console.error('[MySQL Error]:', err);
-                return res.status(500).json({ error: 'Ошибка сохранения в базу данных' });
+                return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            res.json({ success: true, url: paymentUrl });
+            // Возвращаем игроку ссылку на оплату в CryptoBot
+            res.json({ 
+                success: true,
+                url: paymentUrl 
+            });
         });
 
     } catch (error) {
-        console.error('Ошибка API:', error.response?.data || error.message);
-        res.status(500).json({ error: 'Ошибка связи с платежной системой' });
+        console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
     }
 });
 
-// 2. Вебхук CryptoBot
+// ==========================================
+// 3. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
+// ==========================================
 app.post('/api/crypto-webhook', async (req, res) => {
     const update = req.body;
 
-    if (update && update.update_type === 'invoice_paid') {
+    if (update.update_type === 'invoice_paid') {
         const invoice = update.payload;
         
         try {
             const customData = JSON.parse(invoice.payload);
             const { username, item, command } = customData;
 
-            console.log(`[CryptoBot] Оплачено! Игрок: ${username}, Товар: ${item}`);
+            console.log(`[CryptoBot] Оплата получена! Игрок: ${username}, товар: ${item}`);
 
-            // Выдача товара через RCON
+            // Подключаемся к серверу через RCON для выдачи доната
+            const rcon = await Rcon.connect(RCON_CONFIG);
+            
             if (command) {
-                const rcon = await Rcon.connect(RCON_CONFIG);
                 const rconResponse = await rcon.send(command);
-                console.log(`[RCON Ответ]: ${rconResponse}`);
-                await rcon.end();
+                console.log(`[RCON] Консоль сервера ответила: ${rconResponse}`);
             }
 
-            db.query("UPDATE purchases SET status = 'completed' WHERE username = ? AND status = 'pending' ORDER BY id DESC LIMIT 1", [username]);
+            await rcon.end();
+
+            // Обновляем статус в базе данных на completed
+            db.query("UPDATE purchases SET status = 'completed' WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1", [username, 'pending']);
 
         } catch (err) {
-            console.error('[RCON Error]:', err);
+            console.error('[RCON Error] Ошибка при выдаче доната на сервер:', err);
         }
     }
 
