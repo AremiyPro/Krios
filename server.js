@@ -39,8 +39,8 @@ db.connect((err) => {
 const CRYPTO_BOT_TOKEN = process.env.CRYPTO_BOT_TOKEN || '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
     host: '31.57.117.1', 
-    port: 25575,       
-    password: 'j0vjLaYrEMUQ'
+    port: 25682,       
+    password: 'tCe3tFk9VE'
 };
 
 // ==========================================
