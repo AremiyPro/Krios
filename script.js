@@ -131,7 +131,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
 });
 
 // Работа с IP и онлайном
-const SERVER_IP = 'mc.kriosworld.net'; 
+const SERVER_IP = 'kriosworld.mclan.ru:25672'; 
 const UPDATE_INTERVAL = 30000;
 
 async function updateServerStatus() {
