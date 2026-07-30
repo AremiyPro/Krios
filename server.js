@@ -46,28 +46,57 @@ const RCON_CONFIG = {
 // Адрес Minecraft сервера для проверки онлайна
 const MINECRAFT_SERVER_IP = 'kriosworld.mclan.ru:25672';
 
+/// ==========================================
+// 1. МАРШРУТ ПОЛУЧЕНИЯ ОНЛАЙНА ЧЕРЕЗ RCON (С КЭШИРОВАНИЕМ)
 // ==========================================
-// 1. МАРШРУТ ПОЛУЧЕНИЯ ОНЛАЙНА СЕРВЕРА
-// ==========================================
+let cachedOnlineStatus = { online: false, players: 0, max: 0, lastCheck: 0 };
+const CACHE_TTL = 10000; // Кэшируем результат на 10 секунд, чтобы не спамить RCON
+
 app.get('/api/online', async (req, res) => {
+    const now = Date.now();
+    
+    // Если с прошлой проверки прошло меньше 10 секунд — отдаем кэш
+    if (now - cachedOnlineStatus.lastCheck < CACHE_TTL) {
+        return res.json(cachedOnlineStatus);
+    }
+
     try {
-        const response = await axios.get(`https://api.mcsrvstat.us/2/${MINECRAFT_SERVER_IP}`, {
-            timeout: 5000
-        });
-        
-        const data = response.data;
-        if (data && data.online) {
-            return res.json({
-                online: true,
-                players: data.players ? data.players.online : 0,
-                max: data.players ? data.players.max : 0
-            });
+        // Подключаемся по RCON прямо к серверу
+        const rcon = await Rcon.connect(RCON_CONFIG);
+        const response = await rcon.send('list'); // Команда "list" возвращает список игроков и их количество
+        await rcon.end();
+
+        // Ответ обычно выглядит так: "There are 2 of a max of 20 players online: Steve, Alex"
+        // Вытаскиваем цифры из ответа сервера
+        const numbers = response.match(/\d+/g);
+        let players = 0;
+        let max = 20;
+
+        if (numbers && numbers.length >= 2) {
+            players = parseInt(numbers[0], 10);
+            max = parseInt(numbers[1], 10);
         }
 
-        return res.json({ online: false, players: 0, max: 0 });
+        cachedOnlineStatus = {
+            online: true,
+            players: players,
+            max: max,
+            lastCheck: now
+        };
+
+        return res.json(cachedOnlineStatus);
+
     } catch (error) {
-        console.error('[Online API Error]:', error.message);
-        return res.json({ online: false, players: 0, max: 0 });
+        console.error('[RCON Online Check Fail]: Сервер выключен или RCON недоступен');
+        
+        cachedOnlineStatus = {
+            online: false,
+            players: 0,
+            max: 0,
+            lastCheck: now
+        };
+
+        return res.json(cachedOnlineStatus);
     }
 });
 

@@ -198,15 +198,15 @@ async function updateServerStatus() {
     }
 }
 
-// Копирование IP в буфер обмена
-document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(DISPLAY_IP);
-    alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
-});
-
 // Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     renderCategory('privileges');
     updateServerStatus();
     setInterval(updateServerStatus, UPDATE_INTERVAL);
+
+    // Копирование IP в буфер обмена (теперь гарантированно привязывается после загрузки HTML)
+    document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
+        navigator.clipboard.writeText(DISPLAY_IP);
+        alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
+    });
 });
