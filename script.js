@@ -1,3 +1,4 @@
+// Catalog configuration
 const catalog = {
     privileges: {
         title: "Список привилегий",
@@ -12,16 +13,16 @@ const catalog = {
     cases: {
         title: "Донат-кейсы",
         items: [
-            { name: "Кейс с донатом", price: 89, image: "Foto/CASE.png" },
-            { name: "Кейс с валютой", price: 59, image: "Foto/CASE.png" },
-            { name: "Кейс с монетами", price: 39, image: "Foto/CASE.png" }
+            { name: "Кейс с донатом", itemId: "donat_case", price: 89, image: "Foto/CASE.png" },
+            { name: "Кейс с валютой", itemId: "money_case", price: 59, image: "Foto/CASE.png" },
+            { name: "Кейс с монетами", itemId: "coin_case", price: 39, image: "Foto/CASE.png" }
         ]
     },
     other: {
         title: "Прочее",
         items: [
-            { name: "Разбан ключ", price: 249, image: "Foto/UN.png" },
-            { name: "Размут ключ", price: 99, image: "Foto/UN.png" }
+            { name: "Разбан ключ", itemId: "unban", price: 249, image: "Foto/UN.png" },
+            { name: "Размут ключ", itemId: "unmute", price: 99, image: "Foto/UN.png" }
         ]
     }
 };
@@ -32,13 +33,19 @@ const cartIconSvg = `
     </svg>
 `;
 
-let currentAmount = 0; // Скрыто храним цену выбранного товара
+let currentAmount = 0;
+let currentItemId = null;
 
 function renderCategory(categoryKey) {
     const categoryData = catalog[categoryKey];
-    document.getElementById('categoryTitle').innerText = categoryData.title;
+    if (!categoryData) return;
+
+    const titleElement = document.getElementById('categoryTitle');
+    if (titleElement) titleElement.innerText = categoryData.title;
     
     const container = document.getElementById('productsRow');
+    if (!container) return;
+
     container.innerHTML = categoryData.items.map(item => `
         <div class="product-card">
             <img class="product-card-bg" src="${item.image}" alt="${item.name}">
@@ -46,7 +53,7 @@ function renderCategory(categoryKey) {
             <div class="price-badge">${item.price} ₽</div>
             <div class="product-footer">
                 <div class="product-name">${item.name}</div>
-                <button class="btn-cart" onclick="openModal('${item.name}', ${item.price})" title="Купить">
+                <button class="btn-cart" onclick="openModal('${item.name}', ${item.price}, '${item.itemId || ''}')" title="Купить">
                     ${cartIconSvg}
                 </button>
             </div>
@@ -56,125 +63,108 @@ function renderCategory(categoryKey) {
 
 function setCategory(categoryKey, btn) {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     renderCategory(categoryKey);
 }
 
-function openModal(name, price) {
-    document.getElementById('selectedItemName').value = name;
-    currentAmount = price; 
-    document.getElementById('buyModal').classList.add('active');
+function openModal(name, price, itemId = '') {
+    const selectedItemInput = document.getElementById('selectedItemName');
+    const modal = document.getElementById('buyModal');
+    
+    if (selectedItemInput) selectedItemInput.value = name;
+    currentAmount = price;
+    currentItemId = itemId;
+    
+    if (modal) modal.classList.add('active');
 }
 
 function closeModal() {
-    document.getElementById('buyModal').classList.remove('active');
+    const modal = document.getElementById('buyModal');
+    if (modal) modal.classList.remove('active');
 }
 
 function closeModalOnBackdrop(event) {
-    if (event.target === document.getElementById('buyModal')) {
-        closeModal();
-    }
+    const modal = document.getElementById('buyModal');
+    if (event.target === modal) closeModal();
 }
 
-// Отправка формы покупки на бэкенд (CryptoBot)
-document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const username = document.getElementById('donorName').value.trim();
-    const email = document.getElementById('donorEmail').value.trim();
-    const itemName = document.getElementById('selectedItemName').value;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        alert("Пожалуйста, введите существующий адрес электронной почты!");
-        return;
-    }
-
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.innerText = 'Создание счета...';
-
-    try {
-        const res = await fetch('/create-invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                username: username, 
-                email: email, 
-                item: itemName,
-                amount: currentAmount 
-            })
-        });
-
-        const data = await res.json();
+const checkoutForm = document.getElementById('checkoutForm');
+if (checkoutForm) {
+    checkoutForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        if (!res.ok) {
-            alert(data.error || 'Ошибка при обработке запроса.');
-            btn.disabled = false;
-            btn.innerText = 'Оплатить товар';
+        const username = document.getElementById('donorName')?.value.trim();
+        const email = document.getElementById('donorEmail')?.value.trim();
+        const itemName = document.getElementById('selectedItemName')?.value;
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            alert("Пожалуйста, введите корректный адрес электронной почты!");
             return;
         }
 
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            alert('Ошибка при создании платежа: ссылка не получена.');
-            btn.disabled = false;
-            btn.innerText = 'Оплатить товар';
+        const btn = document.getElementById('submitBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'Создание счета...';
         }
-    } catch (e) {
-        console.error("Ошибка сети:", e);
-        alert('Сетевая ошибка при соединении с сервером.');
-        btn.disabled = false;
-        btn.innerText = 'Оплатить товар';
-    }
-});
 
-// Работа с IP и онлайном
-const SERVER_IP = 'mc.kriosworld.net'; 
-const UPDATE_INTERVAL = 30000;
+        try {
+            const res = await fetch('/create-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username: username, 
+                    email: email, 
+                    item: itemName,
+                    itemId: currentItemId,
+                    amount: currentAmount 
+                })
+            });
 
-async function updateServerStatus() {
-    const badgeElement = document.querySelector('.ip-online-badge');
-    if (!badgeElement) return;
+            const data = await res.json();
+            
+            if (!res.ok) {
+                alert(data.error || 'Ошибка при обработке запроса.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Оплатить товар';
+                }
+                return;
+            }
 
-    try {
-        const response = await fetch(`https://api.mcstatus.io/v2/status/java/${SERVER_IP}`);
-        const data = await response.json();
-
-        if (data.online) {
-            const online = data.players.online;
-            const max = data.players.max;
-            badgeElement.innerHTML = `
-                ${SERVER_IP}
-                <div class="ip-text" style="color: #00ff88; margin-top: 2px;">
-                    ● Онлайн: ${online} / ${max}
-                </div>
-            `;
-        } else {
-            badgeElement.innerHTML = `
-                ${SERVER_IP}
-                <div class="ip-text" style="color: #ff4757; margin-top: 2px;">
-                    ● Сервер офлайн
-                </div>
-            `;
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                alert('Ошибка при создании платежа: ссылка не получена.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Оплатить товар';
+                }
+            }
+        } catch (e) {
+            console.error("Ошибка сети:", e);
+            alert('Сетевая ошибка при соединении с сервером.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Оплатить товар';
+            }
         }
-    } catch (error) {
-        badgeElement.innerHTML = `
-            ${SERVER_IP}
-            <div class="ip-text" style="color: #ffa500; margin-top: 2px;">
-                Кликни, чтобы скопировать IP
-            </div>
-        `;
-    }
+    });
 }
 
-document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(SERVER_IP);
-    alert(`IP-адрес ${SERVER_IP} скопирован в буфер обмена!`);
-});
+const DISPLAY_IP = 'kriosworld.mclan.ru:25672'; 
 
-// Инициализация
-renderCategory('privileges');
-updateServerStatus();
-setInterval(updateServerStatus, UPDATE_INTERVAL);
+document.addEventListener('DOMContentLoaded', () => {
+    renderCategory('privileges');
+
+    // Настройка плашки IP без проверки онлайна
+    const badgeElement = document.querySelector('.ip-online-badge');
+    if (badgeElement) {
+        badgeElement.innerText = DISPLAY_IP;
+        badgeElement.addEventListener('click', () => {
+            navigator.clipboard.writeText(DISPLAY_IP);
+            alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
+        });
+    }
+});

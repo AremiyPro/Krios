@@ -2,13 +2,18 @@ const express = require('express');
 const mysql = require('mysql2');
 const path = require('path');
 const axios = require('axios');
+const cors = require('cors');
 const { Rcon } = require('rcon-client');
 require('dotenv').config();
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+
+// Токен CryptoBot (из .env или фолбэк)
+const CRYPTO_BOT_TOKEN = process.env.CRYPTO_BOT_TOKEN || '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 
 // Подключение к БД
 const db = mysql.createPool({
@@ -31,7 +36,7 @@ const RCON_CONFIG = {
 
 // Функция сборки правильной Minecraft-команды
 function buildMinecraftCommand(username, item, itemId, amount) {
-    const name = item.toUpperCase();
+    const name = item ? item.toUpperCase() : '';
 
     // Привилегии
     if (name.includes('VIP')) return `lp user ${username} parent add vip`;
@@ -40,14 +45,14 @@ function buildMinecraftCommand(username, item, itemId, amount) {
     if (name.includes('ENERGY')) return `lp user ${username} parent add energy`;
     if (name.includes('HYBRID')) return `lp user ${username} parent add hybrid`;
 
-    // Кейсы (по id)
-    if (itemId === 'donat_case') return `crates givekey ${username} donat 1`;
-    if (itemId === 'money_case') return `crates givekey ${username} money 1`;
-    if (itemId === 'coin_case') return `crates givekey ${username} coins 1`;
+    // Кейсы
+    if (itemId === 'donat_case' || name.includes('ДОНАТ')) return `crates givekey ${username} donat 1`;
+    if (itemId === 'money_case' || name.includes('ВАЛЮТ')) return `crates givekey ${username} money 1`;
+    if (itemId === 'coin_case' || name.includes('МОНЕТ')) return `crates givekey ${username} coins 1`;
 
     // Наказания
-    if (itemId === 'unban') return `unban ${username}`;
-    if (itemId === 'unmute') return `unmute ${username}`;
+    if (itemId === 'unban' || name.includes('РАЗБАН')) return `unban ${username}`;
+    if (itemId === 'unmute' || name.includes('РАЗМУТ')) return `unmute ${username}`;
 
     // Донат валюта (Курс 1 руб = 2 валюты)
     if (itemId && itemId.startsWith('currency_')) {
@@ -59,31 +64,25 @@ function buildMinecraftCommand(username, item, itemId, amount) {
 }
 
 // ==========================================
-// 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// 1. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
 // ==========================================
 app.post('/create-invoice', async (req, res) => {
     try {
-        const { username, email, item, amount } = req.body;
+        const { username, email, item, itemId, amount } = req.body;
 
-        // Определяем консольную команду для выдачи
-        let command = '';
-        if (item === 'VIP') command = `lp user ${username} parent add vip`;
-        else if (item === 'PREMIUM') command = `lp user ${username} parent add premium`;
-        else if (item === 'DELUXE') command = `lp user ${username} parent add deluxe`;
-        else if (item === 'ENERGY') command = `lp user ${username} parent add energy`;
-        else if (item === 'HYBRID') command = `lp user ${username} parent add hybrid`;
-        else if (item.includes('Кейс')) command = `crates givekey ${username} ${item} 1`;
-        else if (item.includes('Разбан')) command = `unban ${username}`;
-        else if (item.includes('Размут')) command = `unmute ${username}`;
-        else command = `eco give ${username} ${amount}`;
+        if (!username || !item || !amount) {
+            return res.status(400).json({ error: 'Не все обязательные поля заполнены' });
+        }
 
-        // Передаем сумму как есть, без конвертации в USD
+        // Собираем команду для RCON
+        const command = buildMinecraftCommand(username, item, itemId, amount);
         const amountRub = Number(amount).toFixed(2);
 
+        // Запрос к CryptoBot
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            currency_type: 'fiat', // Указываем API, что прайс в фиате
-            fiat: 'RUB',           // Выбираем рубли
-            amount: amountRub,     // Передаем рубли (например, '500.00')
+            currency_type: 'fiat',
+            fiat: 'RUB',
+            amount: amountRub,
             description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
@@ -96,12 +95,13 @@ app.post('/create-invoice', async (req, res) => {
         });
 
         if (!cryptoResponse.data.ok) {
+            console.error('[CryptoBot API Error]:', cryptoResponse.data);
             return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
         }
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
-        // Записываем покупку в базу данных со статусом pending
+        // Запись покупки в база данных со статусом pending
         const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, ?, NOW())';
         
         db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err, result) => {
@@ -110,7 +110,6 @@ app.post('/create-invoice', async (req, res) => {
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
-            // Возвращаем игроку ссылку на оплату в CryptoBot
             res.json({ 
                 success: true,
                 url: paymentUrl 
@@ -119,17 +118,17 @@ app.post('/create-invoice', async (req, res) => {
 
     } catch (error) {
         console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
-        res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
+        res.status(500).json({ error: error.response?.data?.error || 'Ошибка связи с платежным шлюзом' });
     }
 });
 
 // ==========================================
-// 3. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
+// 2. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
 // ==========================================
 app.post('/api/crypto-webhook', async (req, res) => {
     const update = req.body;
 
-    if (update.update_type === 'invoice_paid') {
+    if (update && update.update_type === 'invoice_paid') {
         const invoice = update.payload;
         
         try {
@@ -138,7 +137,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             console.log(`[CryptoBot] Оплата получена! Игрок: ${username}, товар: ${item}`);
 
-            // Подключаемся к серверу через RCON для выдачи доната
+            // Выдача доната по RCON
             const rcon = await Rcon.connect(RCON_CONFIG);
             
             if (command) {
@@ -148,11 +147,11 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             await rcon.end();
 
-            // Обновляем статус в базе данных на completed
+            // Обновление статуса в БД
             db.query("UPDATE purchases SET status = 'completed' WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1", [username, 'pending']);
 
         } catch (err) {
-            console.error('[RCON Error] Ошибка при выдаче доната на сервер:', err);
+            console.error('[RCON Error] Ошибка при выдаче доната:', err);
         }
     }
 
