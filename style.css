@@ -12,7 +12,11 @@
     --border: rgba(0, 210, 255, 0.12);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+}
 
 body {
     font-family: 'Montserrat', sans-serif;
@@ -26,6 +30,17 @@ body {
         radial-gradient(circle at 90% 40%, rgba(0, 114, 255, 0.08) 0%, transparent 50%);
 }
 
+/* Убираем стрелочки у input[type=number] */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
+
+/* Баннер и IP-плашка */
 .top-banner {
     width: 100%;
     position: relative;
@@ -38,6 +53,8 @@ body {
     width: 100%;
     height: auto;
     display: block;
+    min-height: 120px;
+    object-fit: cover;
 }
 
 .ip-online-badge {
@@ -45,7 +62,7 @@ body {
     top: 20px;
     right: 20px;
     z-index: 10;
-    background: rgba(10, 17, 24, 0.8);
+    background: rgba(10, 17, 24, 0.85);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid var(--primary-cyan);
@@ -78,6 +95,7 @@ body {
     transition: color 0.2s;
 }
 
+/* Шапка сайта */
 .hero {
     text-align: center;
     padding: 40px 20px 20px;
@@ -116,6 +134,7 @@ body {
     margin: 0 auto;
 }
 
+/* Основной контейнер */
 .main-layout {
     max-width: 1100px;
     width: 100%;
@@ -124,6 +143,7 @@ body {
     flex: 1;
 }
 
+/* Выбор категорий */
 .mode-selector {
     display: flex;
     gap: 10px;
@@ -153,6 +173,7 @@ body {
     box-shadow: 0 4px 15px var(--accent-glow);
 }
 
+/* Покупка валюты */
 .currency-box {
     background: linear-gradient(135deg, rgba(0, 210, 255, 0.08), rgba(16, 26, 38, 0.9));
     border: 1px solid var(--primary-cyan);
@@ -173,7 +194,10 @@ body {
     margin-bottom: 4px;
 }
 
-.currency-info p { color: var(--text-muted); font-size: 13px; }
+.currency-info p { 
+    color: var(--text-muted); 
+    font-size: 13px; 
+}
 
 .currency-form {
     display: flex;
@@ -190,6 +214,8 @@ body {
     width: 130px;
     font-weight: 700;
     outline: none;
+    text-align: center;
+    transition: border-color 0.2s;
 }
 
 .currency-form input:focus {
@@ -221,6 +247,7 @@ body {
     letter-spacing: 0.5px;
 }
 
+/* Сетка товаров */
 .products-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -252,6 +279,11 @@ body {
     top: 0;
     left: 0;
     z-index: 1;
+    transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-card-bg {
+    transform: scale(1.05);
 }
 
 .product-overlay {
@@ -313,7 +345,7 @@ body {
 
 .btn-cart:hover {
     background: var(--primary-cyan);
-    transform: scale(1.05);
+    transform: scale(1.08);
 }
 
 .btn-cart svg {
@@ -322,11 +354,13 @@ body {
     fill: #0a1118;
 }
 
+/* Модальное окно */
 .modal-backdrop {
     position: fixed;
     inset: 0;
     background: rgba(5, 8, 12, 0.85);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     z-index: 200;
     display: flex;
     align-items: center;
@@ -405,7 +439,6 @@ body {
 }
 
 .form-group input:focus { border-color: var(--primary-cyan); }
-
 .form-group input[readonly] { opacity: 0.8; }
 
 .btn-checkout {
@@ -426,6 +459,7 @@ body {
 
 .btn-checkout:hover { opacity: 0.95; transform: translateY(-2px); }
 
+/* Футер */
 .footer {
     background: #060a0f;
     border-top: 1px solid var(--border);
@@ -507,11 +541,64 @@ body {
     transition: fill 0.25s;
 }
 
+/* Мобильная адаптивность */
+@media (max-width: 768px) {
+    .hero h1 {
+        font-size: 32px;
+    }
+
+    .currency-box {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+
+    .currency-form {
+        flex-direction: column;
+    }
+
+    .currency-form input {
+        width: 100%;
+    }
+
+    .footer-container {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .footer-links {
+        justify-content: center;
+    }
+}
+
 @media (max-width: 600px) {
     .ip-online-badge {
         top: 10px;
         right: 10px;
         padding: 6px 12px;
         font-size: 11px;
+    }
+
+    .mode-selector {
+        flex-direction: column;
+    }
+
+    .products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+    }
+
+    .product-card {
+        height: 240px;
+    }
+
+    .product-name {
+        font-size: 13px;
+    }
+
+    .price-badge {
+        font-size: 13px;
+        padding: 6px 10px;
     }
 }

@@ -62,7 +62,7 @@ function setCategory(categoryKey, btn) {
 
 function openModal(name, price) {
     document.getElementById('selectedItemName').value = name;
-    currentAmount = price; // Запоминаем цену в переменную, а не в input
+    currentAmount = price; 
     document.getElementById('buyModal').classList.add('active');
 }
 
@@ -76,19 +76,14 @@ function closeModalOnBackdrop(event) {
     }
 }
 
-function copyIP() {
-    navigator.clipboard.writeText('mc.kriosworld.net');
-}
-
+// Отправка формы покупки на бэкенд (CryptoBot)
 document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Получаем данные из полей
     const username = document.getElementById('donorName').value.trim();
     const email = document.getElementById('donorEmail').value.trim();
     const itemName = document.getElementById('selectedItemName').value;
 
-    // Простая проверка электронной почты
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
         alert("Пожалуйста, введите существующий адрес электронной почты!");
@@ -97,7 +92,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true;
-    btn.innerText = 'Проверка аккаунта...';
+    btn.innerText = 'Создание счета...';
 
     try {
         const res = await fetch('/create-invoice', {
@@ -113,15 +108,13 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
 
         const data = await res.json();
         
-        // Если статус не 200 (например, ошибка с никнеймом)
         if (!res.ok) {
-            alert(data.error || 'Ошибка при обработке запроса. Проверьте никнейм!');
+            alert(data.error || 'Ошибка при обработке запроса.');
             btn.disabled = false;
             btn.innerText = 'Оплатить товар';
             return;
         }
 
-        // Если сервер вернул ссылку на оплату
         if (data.url) {
             window.location.href = data.url;
         } else {
@@ -137,5 +130,51 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
     }
 });
 
-// Старт
+// Работа с IP и онлайном
+const SERVER_IP = 'mc.kriosworld.net'; 
+const UPDATE_INTERVAL = 30000;
+
+async function updateServerStatus() {
+    const badgeElement = document.querySelector('.ip-online-badge');
+    if (!badgeElement) return;
+
+    try {
+        const response = await fetch(`https://api.mcstatus.io/v2/status/java/${SERVER_IP}`);
+        const data = await response.json();
+
+        if (data.online) {
+            const online = data.players.online;
+            const max = data.players.max;
+            badgeElement.innerHTML = `
+                ${SERVER_IP}
+                <div class="ip-text" style="color: #00ff88; margin-top: 2px;">
+                    ● Онлайн: ${online} / ${max}
+                </div>
+            `;
+        } else {
+            badgeElement.innerHTML = `
+                ${SERVER_IP}
+                <div class="ip-text" style="color: #ff4757; margin-top: 2px;">
+                    ● Сервер офлайн
+                </div>
+            `;
+        }
+    } catch (error) {
+        badgeElement.innerHTML = `
+            ${SERVER_IP}
+            <div class="ip-text" style="color: #ffa500; margin-top: 2px;">
+                Кликни, чтобы скопировать IP
+            </div>
+        `;
+    }
+}
+
+document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(SERVER_IP);
+    alert(`IP-адрес ${SERVER_IP} скопирован в буфер обмена!`);
+});
+
+// Инициализация
 renderCategory('privileges');
+updateServerStatus();
+setInterval(updateServerStatus, UPDATE_INTERVAL);
