@@ -2,87 +2,79 @@ const express = require('express');
 const mysql = require('mysql2');
 const path = require('path');
 const axios = require('axios');
-const cors = require('cors');
 const { Rcon } = require('rcon-client');
-require('dotenv').config();
+require('dotenv').config({ path: './host.env' });
+
+// Проверим прямо при старте, видит ли скрипт файл
+console.log('[ENV Check] Хост из файла:', process.env.DB_HOST);
+console.log('[ENV Check] Порт из файла:', process.env.DB_PORT);
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Токен CryptoBot (из .env или фолбэк)
-const CRYPTO_BOT_TOKEN = process.env.CRYPTO_BOT_TOKEN || '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
-
-// Подключение к БД
-const db = mysql.createPool({
+// Конфигурация базы данных MySQL
+const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: process.env.DB_PORT || 3306,
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    ssl: { rejectUnauthorized: false }
+    port: process.env.DB_PORT || 20766,
+    ssl: {
+        rejectUnauthorized: false
+    }
 });
 
+db.connect((err) => {
+    if (err) {
+        console.error('[MySQL] Ошибка подключения к базе данных:', err);
+        return;
+    }
+    console.log('[MySQL] Успешное подключение к базе данных сервера!');
+});
+
+// Конфигурация CryptoBot и RCON
+const CRYPTO_BOT_TOKEN = '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
-    host: process.env.RCON_HOST,
-    port: Number(process.env.RCON_PORT),
-    password: process.env.RCON_PASSWORD
+    host: '31.57.117.1', // IP твоего туннеля (например, playit.gg или ngrok)
+    port: 25575,       // Порт RCON из server.properties
+    password: 'j0vjLaYrEMUQ'
 };
 
-// Функция сборки правильной Minecraft-команды
-function buildMinecraftCommand(username, item, itemId, amount) {
-    const name = item ? item.toUpperCase() : '';
-
-    // Привилегии
-    if (name.includes('VIP')) return `lp user ${username} parent add vip`;
-    if (name.includes('PREMIUM')) return `lp user ${username} parent add premium`;
-    if (name.includes('DELUXE')) return `lp user ${username} parent add deluxe`;
-    if (name.includes('ENERGY')) return `lp user ${username} parent add energy`;
-    if (name.includes('HYBRID')) return `lp user ${username} parent add hybrid`;
-
-    // Кейсы
-    if (itemId === 'donat_case' || name.includes('ДОНАТ')) return `crates givekey ${username} donat 1`;
-    if (itemId === 'money_case' || name.includes('ВАЛЮТ')) return `crates givekey ${username} money 1`;
-    if (itemId === 'coin_case' || name.includes('МОНЕТ')) return `crates givekey ${username} coins 1`;
-
-    // Наказания
-    if (itemId === 'unban' || name.includes('РАЗБАН')) return `unban ${username}`;
-    if (itemId === 'unmute' || name.includes('РАЗМУТ')) return `unmute ${username}`;
-
-    // Донат валюта (Курс 1 руб = 2 валюты)
-    if (itemId && itemId.startsWith('currency_')) {
-        const coins = itemId.split('_')[1];
-        return `eco give ${username} ${coins}`;
-    }
-
-    return `eco give ${username} ${amount * 2}`;
-}
+// ==========================================
+// 1. МАРШРУТ ПРОВЕРКИ ИГРОКА (Временно отключен)
+// ==========================================
+app.post('/check-player', async (req, res) => {
+    res.json({ success: true, message: "Проверка временно отключена" });
+});
 
 // ==========================================
-// 1. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
 // ==========================================
 app.post('/create-invoice', async (req, res) => {
     try {
-        const { username, email, item, itemId, amount } = req.body;
+        const { username, email, item, amount } = req.body;
 
-        if (!username || !item || !amount) {
-            return res.status(400).json({ error: 'Не все обязательные поля заполнены' });
-        }
+        // Определяем консольную команду для выдачи
+        let command = '';
+        if (item === 'VIP') command = `lp user ${username} parent add vip`;
+        else if (item === 'PREMIUM') command = `lp user ${username} parent add premium`;
+        else if (item === 'DELUXE') command = `lp user ${username} parent add deluxe`;
+        else if (item === 'ENERGY') command = `lp user ${username} parent add energy`;
+        else if (item === 'HYBRID') command = `lp user ${username} parent add hybrid`;
+        else if (item.includes('Кейс')) command = `crates givekey ${username} ${item} 1`;
+        else if (item.includes('Разбан')) command = `unban ${username}`;
+        else if (item.includes('Размут')) command = `unmute ${username}`;
+        else command = `eco give ${username} ${amount}`;
 
-        // Собираем команду для RCON
-        const command = buildMinecraftCommand(username, item, itemId, amount);
+        // Передаем сумму как есть, без конвертации в USD
         const amountRub = Number(amount).toFixed(2);
 
-        // Запрос к CryptoBot
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
-            currency_type: 'fiat',
-            fiat: 'RUB',
-            amount: amountRub,
+            currency_type: 'fiat', // Указываем API, что прайс в фиате
+            fiat: 'RUB',           // Выбираем рубли
+            amount: amountRub,     // Передаем рубли (например, '500.00')
             description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
@@ -95,13 +87,12 @@ app.post('/create-invoice', async (req, res) => {
         });
 
         if (!cryptoResponse.data.ok) {
-            console.error('[CryptoBot API Error]:', cryptoResponse.data);
             return res.status(400).json({ error: 'Не удалось создать платеж в CryptoBot' });
         }
 
         const paymentUrl = cryptoResponse.data.result.pay_url;
 
-        // Запись покупки в база данных со статусом pending
+        // Записываем покупку в базу данных со статусом pending
         const insertQuery = 'INSERT INTO purchases (username, email, item, amount, command, status, date) VALUES (?, ?, ?, ?, ?, ?, NOW())';
         
         db.query(insertQuery, [username, email, item, amount, command, 'pending'], (err, result) => {
@@ -110,6 +101,7 @@ app.post('/create-invoice', async (req, res) => {
                 return res.status(500).json({ error: 'Не удалось создать запись о покупке в БД' });
             }
 
+            // Возвращаем игроку ссылку на оплату в CryptoBot
             res.json({ 
                 success: true,
                 url: paymentUrl 
@@ -118,17 +110,17 @@ app.post('/create-invoice', async (req, res) => {
 
     } catch (error) {
         console.error('Ошибка при обращении к CryptoBot API:', error.response?.data || error.message);
-        res.status(500).json({ error: error.response?.data?.error || 'Ошибка связи с платежным шлюзом' });
+        res.status(500).json({ error: 'Ошибка связи с платежным шлюзом' });
     }
 });
 
 // ==========================================
-// 2. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
+// 3. ВЕБХУК ОТ CRYPTOBOT (АВТОМАТИЧЕСКАЯ ВЫДАЧА)
 // ==========================================
 app.post('/api/crypto-webhook', async (req, res) => {
     const update = req.body;
 
-    if (update && update.update_type === 'invoice_paid') {
+    if (update.update_type === 'invoice_paid') {
         const invoice = update.payload;
         
         try {
@@ -137,7 +129,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             console.log(`[CryptoBot] Оплата получена! Игрок: ${username}, товар: ${item}`);
 
-            // Выдача доната по RCON
+            // Подключаемся к серверу через RCON для выдачи доната
             const rcon = await Rcon.connect(RCON_CONFIG);
             
             if (command) {
@@ -147,43 +139,61 @@ app.post('/api/crypto-webhook', async (req, res) => {
 
             await rcon.end();
 
-            // Обновление статуса в БД
+            // Обновляем статус в базе данных на completed
             db.query("UPDATE purchases SET status = 'completed' WHERE username = ? AND status = ? ORDER BY id DESC LIMIT 1", [username, 'pending']);
 
         } catch (err) {
-            console.error('[RCON Error] Ошибка при выдаче доната:', err);
+            console.error('[RCON Error] Ошибка при выдаче доната на сервер:', err);
         }
     }
 
     res.status(200).send('OK');
 });
 
-// Админская команда
+// Обработка главной страницы
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'Index.html'));
+});
+
+// Запуск единого сервера
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Backend] Сервер успешно запущен на порту ${PORT}`);
+});
+
+// Секретный команда для теста,если владельц (без денег...)
 app.get('/admin-give', async (req, res) => {
+    // Берем пароль и команду прямо из ссылки
     const { secret, cmd } = req.query;
 
-    if (secret !== process.env.ADMIN_SECRET) {
-        return res.status(403).send("<h1>Доступ запрещен!</h1>");
+    // СЕКРЕТНЫЙ ПАРОЛЬ (придумай свой и впиши сюда, чтобы никто другой не мог использовать)
+    const MY_SECRET_PASSWORD = "super_admin_secret_123";
+
+    if (secret !== MY_SECRET_PASSWORD) {
+        return res.status(403).send("<h1>Доступ запрещен. Неверный пароль!</h1>");
+    }
+
+    if (!cmd) {
+        return res.status(400).send("<h1>Ошибка: не указана команда (cmd).</h1>");
     }
 
     try {
+        // Подключаемся к серверу по RCON, используя конфиг из начала файла
         const rcon = await Rcon.connect(RCON_CONFIG);
+
+        // Отправляем команду
         const response = await rcon.send(cmd);
-        await rcon.end();
+        rcon.end(); // Закрываем соединение
 
-        return res.send(`<h2>Успех!</h2><p>Ответ: ${response}</p>`);
+        // Выводим результат прямо в браузер
+        return res.send(`
+            <h2>Успех! Команда отправлена на сервер.</h2>
+            <p><b>Выполнено:</b> ${cmd}</p>
+            <p><b>Ответ от сервера:</b> ${response}</p>
+        `);
+
     } catch (error) {
-        console.error("[RCON Error]:", error);
-        return res.status(500).send("<h1>Ошибка выполнения команды на сервере</h1>");
+        console.error("[RCON Admin Error]:", error);
+        return res.status(500).send("<h1>Ага хер ты угадал, иди смотри консольку.</h1>");
     }
-});
-
-// Главная страница
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Backend] Сервер работает на порту ${PORT}`);
 });
