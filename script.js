@@ -1,3 +1,4 @@
+// Catalog configuration
 const catalog = {
     privileges: {
         title: "Список привилегий",
@@ -34,11 +35,19 @@ const cartIconSvg = `
 
 let currentAmount = 0; // Скрыто храним цену выбранного товара
 
+// Отрисовка товаров выбранной категории
 function renderCategory(categoryKey) {
     const categoryData = catalog[categoryKey];
-    document.getElementById('categoryTitle').innerText = categoryData.title;
+    if (!categoryData) return;
+
+    const titleElement = document.getElementById('categoryTitle');
+    if (titleElement) {
+        titleElement.innerText = categoryData.title;
+    }
     
     const container = document.getElementById('productsRow');
+    if (!container) return;
+
     container.innerHTML = categoryData.items.map(item => `
         <div class="product-card">
             <img class="product-card-bg" src="${item.image}" alt="${item.name}">
@@ -54,92 +63,113 @@ function renderCategory(categoryKey) {
     `).join('');
 }
 
+// Переключение вкладок категорий
 function setCategory(categoryKey, btn) {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    if (btn) btn.classList.add('active');
     renderCategory(categoryKey);
 }
 
+// Открытие модального окна покупки
 function openModal(name, price) {
-    document.getElementById('selectedItemName').value = name;
+    const selectedItemInput = document.getElementById('selectedItemName');
+    const modal = document.getElementById('buyModal');
+    
+    if (selectedItemInput) selectedItemInput.value = name;
     currentAmount = price; 
-    document.getElementById('buyModal').classList.add('active');
+    
+    if (modal) modal.classList.add('active');
 }
 
+// Закрытие модального окна
 function closeModal() {
-    document.getElementById('buyModal').classList.remove('active');
+    const modal = document.getElementById('buyModal');
+    if (modal) modal.classList.remove('active');
 }
 
+// Закрытие по клику на фон
 function closeModalOnBackdrop(event) {
-    if (event.target === document.getElementById('buyModal')) {
+    const modal = document.getElementById('buyModal');
+    if (event.target === modal) {
         closeModal();
     }
 }
 
-// Отправка формы покупки на бэкенд (CryptoBot)
-document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    const username = document.getElementById('donorName').value.trim();
-    const email = document.getElementById('donorEmail').value.trim();
-    const itemName = document.getElementById('selectedItemName').value;
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        alert("Пожалуйста, введите существующий адрес электронной почты!");
-        return;
-    }
-
-    const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.innerText = 'Создание счета...';
-
-    try {
-        const res = await fetch('/create-invoice', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                username: username, 
-                email: email, 
-                item: itemName,
-                amount: currentAmount 
-            })
-        });
-
-        const data = await res.json();
+// Отправка формы покупки на бэкенд (CryptoBot / Реквизиты)
+const checkoutForm = document.getElementById('checkoutForm');
+if (checkoutForm) {
+    checkoutForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         
-        if (!res.ok) {
-            alert(data.error || 'Ошибка при обработке запроса.');
-            btn.disabled = false;
-            btn.innerText = 'Оплатить товар';
+        const username = document.getElementById('donorName')?.value.trim();
+        const email = document.getElementById('donorEmail')?.value.trim();
+        const itemName = document.getElementById('selectedItemName')?.value;
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email || !emailRegex.test(email)) {
+            alert("Пожалуйста, введите корректный адрес электронной почты!");
             return;
         }
 
-        if (data.url) {
-            window.location.href = data.url;
-        } else {
-            alert('Ошибка при создании платежа: ссылка не получена.');
-            btn.disabled = false;
-            btn.innerText = 'Оплатить товар';
+        const btn = document.getElementById('submitBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = 'Создание счета...';
         }
-    } catch (e) {
-        console.error("Ошибка сети:", e);
-        alert('Сетевая ошибка при соединении с сервером.');
-        btn.disabled = false;
-        btn.innerText = 'Оплатить товар';
-    }
-});
 
-// Работа с IP и онлайном через ваш бэкенд Render
+        try {
+            const res = await fetch('/create-invoice', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username: username, 
+                    email: email, 
+                    item: itemName,
+                    amount: currentAmount 
+                })
+            });
+
+            const data = await res.json();
+            
+            if (!res.ok) {
+                alert(data.error || 'Ошибка при обработке запроса.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Оплатить товар';
+                }
+                return;
+            }
+
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                alert('Ошибка при создании платежа: ссылка не получена.');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerText = 'Оплатить товар';
+                }
+            }
+        } catch (e) {
+            console.error("Ошибка сети:", e);
+            alert('Сетевая ошибка при соединении с сервером.');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = 'Оплатить товар';
+            }
+        }
+    });
+}
+
+// Настройки отображения IP и онлайн-статуса
 const DISPLAY_IP = 'kriosworld.mclan.ru:25672'; 
 const UPDATE_INTERVAL = 30000;
 
+// Запрос онлайна через бэкенд (/api/online)
 async function updateServerStatus() {
     const badgeElement = document.querySelector('.ip-online-badge');
     if (!badgeElement) return;
 
     try {
-        // Запрашиваем собственный сервер Node.js на Render
         const response = await fetch('/api/online');
         const data = await response.json();
 
@@ -168,12 +198,15 @@ async function updateServerStatus() {
     }
 }
 
+// Копирование IP в буфер обмена
 document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
     navigator.clipboard.writeText(DISPLAY_IP);
     alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
 });
 
-// Инициализация
-renderCategory('privileges');
-updateServerStatus();
-setInterval(updateServerStatus, UPDATE_INTERVAL);
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', () => {
+    renderCategory('privileges');
+    updateServerStatus();
+    setInterval(updateServerStatus, UPDATE_INTERVAL);
+});
