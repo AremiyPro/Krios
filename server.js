@@ -39,12 +39,40 @@ db.connect((err) => {
 const CRYPTO_BOT_TOKEN = process.env.CRYPTO_BOT_TOKEN || '612520:AAnEvolMcUAEbmY6fVHB5koXsRHJBLmC0eH';
 const RCON_CONFIG = {
     host: '31.57.117.1', 
-    port: 25682,       
+    port: 25682,        
     password: 'tCe3tFk9VE'
 };
 
+// Адрес Minecraft сервера для проверки онлайна
+const MINECRAFT_SERVER_IP = 'kriosworld.mclan.ru:25672';
+
 // ==========================================
-// 1. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
+// 1. МАРШРУТ ПОЛУЧЕНИЯ ОНЛАЙНА СЕРВЕРА
+// ==========================================
+app.get('/api/online', async (req, res) => {
+    try {
+        const response = await axios.get(`https://api.mcsrvstat.us/2/${MINECRAFT_SERVER_IP}`, {
+            timeout: 5000
+        });
+        
+        const data = response.data;
+        if (data && data.online) {
+            return res.json({
+                online: true,
+                players: data.players ? data.players.online : 0,
+                max: data.players ? data.players.max : 0
+            });
+        }
+
+        return res.json({ online: false, players: 0, max: 0 });
+    } catch (error) {
+        console.error('[Online API Error]:', error.message);
+        return res.json({ online: false, players: 0, max: 0 });
+    }
+});
+
+// ==========================================
+// 2. МАРШРУТ СОЗДАНИЯ ПОКУПКИ И ИНВОЙСА
 // ==========================================
 app.post('/create-invoice', async (req, res) => {
     try {
@@ -70,8 +98,8 @@ app.post('/create-invoice', async (req, res) => {
 
         const cryptoResponse = await axios.post('https://pay.crypt.bot/api/createInvoice', {
             currency_type: 'fiat',
-            fiat: 'RUB',           
-            amount: amountRub,     
+            fiat: 'RUB',            
+            amount: amountRub,      
             description: `Покупка ${item} для ${username}`,
             payload: JSON.stringify({ username, item, command }),
             paid_btn_name: 'callback',
@@ -111,7 +139,7 @@ app.post('/create-invoice', async (req, res) => {
 });
 
 // ==========================================
-// 2. ВЕБХУК ОТ CRYPTOBOT (АВТОВЫДАЧА)
+// 3. ВЕБХУК ОТ CRYPTOBOT (АВТОВЫДАЧА)
 // ==========================================
 app.post('/api/crypto-webhook', async (req, res) => {
     const update = req.body;
@@ -147,7 +175,7 @@ app.post('/api/crypto-webhook', async (req, res) => {
 });
 
 // ==========================================
-// 3. АДМИН-ВЫДАЧА ТОВАРА (ТЕСТ)
+// 4. АДМИН-ВЫДАЧА ТОВАРА (ТЕСТ)
 // ==========================================
 app.get('/admin-give', async (req, res) => {
     const { secret, cmd } = req.query;
