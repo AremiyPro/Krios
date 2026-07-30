@@ -130,8 +130,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
     }
 });
 
-// Работа с IP и онлайном
-const SERVER_IP = 'kriosworld.mclan.ru:25672'; 
+// Работа с IP и онлайном через ваш бэкенд Render
+const DISPLAY_IP = 'kriosworld.mclan.ru:25672'; 
 const UPDATE_INTERVAL = 30000;
 
 async function updateServerStatus() {
@@ -139,21 +139,20 @@ async function updateServerStatus() {
     if (!badgeElement) return;
 
     try {
-        const response = await fetch(`https://api.mcstatus.io/v2/status/java/${SERVER_IP}`);
+        // Запрашиваем собственный сервер Node.js на Render
+        const response = await fetch('/api/online');
         const data = await response.json();
 
         if (data.online) {
-            const online = data.players.online;
-            const max = data.players.max;
             badgeElement.innerHTML = `
-                ${SERVER_IP}
+                ${DISPLAY_IP}
                 <div class="ip-text" style="color: #00ff88; margin-top: 2px;">
-                    ● Онлайн: ${online} / ${max}
+                    ● Онлайн: ${data.players} / ${data.max}
                 </div>
             `;
         } else {
             badgeElement.innerHTML = `
-                ${SERVER_IP}
+                ${DISPLAY_IP}
                 <div class="ip-text" style="color: #ff4757; margin-top: 2px;">
                     ● Сервер офлайн
                 </div>
@@ -161,7 +160,7 @@ async function updateServerStatus() {
         }
     } catch (error) {
         badgeElement.innerHTML = `
-            ${SERVER_IP}
+            ${DISPLAY_IP}
             <div class="ip-text" style="color: #ffa500; margin-top: 2px;">
                 Кликни, чтобы скопировать IP
             </div>
@@ -170,8 +169,8 @@ async function updateServerStatus() {
 }
 
 document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(SERVER_IP);
-    alert(`IP-адрес ${SERVER_IP} скопирован в буфер обмена!`);
+    navigator.clipboard.writeText(DISPLAY_IP);
+    alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
 });
 
 // Инициализация
