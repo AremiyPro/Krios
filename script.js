@@ -1,4 +1,3 @@
-// Catalog configuration
 const catalog = {
     privileges: {
         title: "Список привилегий",
@@ -35,19 +34,11 @@ const cartIconSvg = `
 
 let currentAmount = 0; // Скрыто храним цену выбранного товара
 
-// Отрисовка товаров выбранной категории
 function renderCategory(categoryKey) {
     const categoryData = catalog[categoryKey];
-    if (!categoryData) return;
-
-    const titleElement = document.getElementById('categoryTitle');
-    if (titleElement) {
-        titleElement.innerText = categoryData.title;
-    }
+    document.getElementById('categoryTitle').innerText = categoryData.title;
     
     const container = document.getElementById('productsRow');
-    if (!container) return;
-
     container.innerHTML = categoryData.items.map(item => `
         <div class="product-card">
             <img class="product-card-bg" src="${item.image}" alt="${item.name}">
@@ -63,126 +54,106 @@ function renderCategory(categoryKey) {
     `).join('');
 }
 
-// Переключение вкладок категорий
 function setCategory(categoryKey, btn) {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    btn.classList.add('active');
     renderCategory(categoryKey);
 }
 
-// Открытие модального окна покупки
 function openModal(name, price) {
-    const selectedItemInput = document.getElementById('selectedItemName');
-    const modal = document.getElementById('buyModal');
-    
-    if (selectedItemInput) selectedItemInput.value = name;
+    document.getElementById('selectedItemName').value = name;
     currentAmount = price; 
-    
-    if (modal) modal.classList.add('active');
+    document.getElementById('buyModal').classList.add('active');
 }
 
-// Закрытие модального окна
 function closeModal() {
-    const modal = document.getElementById('buyModal');
-    if (modal) modal.classList.remove('active');
+    document.getElementById('buyModal').classList.remove('active');
 }
 
-// Закрытие по клику на фон
 function closeModalOnBackdrop(event) {
-    const modal = document.getElementById('buyModal');
-    if (event.target === modal) {
+    if (event.target === document.getElementById('buyModal')) {
         closeModal();
     }
 }
 
-// Отправка формы покупки на бэкенд (CryptoBot / Реквизиты)
-const checkoutForm = document.getElementById('checkoutForm');
-if (checkoutForm) {
-    checkoutForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const username = document.getElementById('donorName')?.value.trim();
-        const email = document.getElementById('donorEmail')?.value.trim();
-        const itemName = document.getElementById('selectedItemName')?.value;
+// Отправка формы покупки на бэкенд (CryptoBot)
+document.getElementById('checkoutForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const username = document.getElementById('donorName').value.trim();
+    const email = document.getElementById('donorEmail').value.trim();
+    const itemName = document.getElementById('selectedItemName').value;
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!email || !emailRegex.test(email)) {
-            alert("Пожалуйста, введите корректный адрес электронной почты!");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        alert("Пожалуйста, введите существующий адрес электронной почты!");
+        return;
+    }
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerText = 'Создание счета...';
+
+    try {
+        const res = await fetch('/create-invoice', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: username, 
+                email: email, 
+                item: itemName,
+                amount: currentAmount 
+            })
+        });
+
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert(data.error || 'Ошибка при обработке запроса.');
+            btn.disabled = false;
+            btn.innerText = 'Оплатить товар';
             return;
         }
 
-        const btn = document.getElementById('submitBtn');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerText = 'Создание счета...';
+        if (data.url) {
+            window.location.href = data.url;
+        } else {
+            alert('Ошибка при создании платежа: ссылка не получена.');
+            btn.disabled = false;
+            btn.innerText = 'Оплатить товар';
         }
+    } catch (e) {
+        console.error("Ошибка сети:", e);
+        alert('Сетевая ошибка при соединении с сервером.');
+        btn.disabled = false;
+        btn.innerText = 'Оплатить товар';
+    }
+});
 
-        try {
-            const res = await fetch('/create-invoice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    username: username, 
-                    email: email, 
-                    item: itemName,
-                    amount: currentAmount 
-                })
-            });
-
-            const data = await res.json();
-            
-            if (!res.ok) {
-                alert(data.error || 'Ошибка при обработке запроса.');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = 'Оплатить товар';
-                }
-                return;
-            }
-
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                alert('Ошибка при создании платежа: ссылка не получена.');
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerText = 'Оплатить товар';
-                }
-            }
-        } catch (e) {
-            console.error("Ошибка сети:", e);
-            alert('Сетевая ошибка при соединении с сервером.');
-            if (btn) {
-                btn.disabled = false;
-                btn.innerText = 'Оплатить товар';
-            }
-        }
-    });
-}
-
-// Настройки отображения IP и онлайн-статуса
-const DISPLAY_IP = 'kriosworld.mclan.ru:25672'; 
+// Работа с IP и онлайном
+const SERVER_IP = 'mc.kriosworld.net'; 
 const UPDATE_INTERVAL = 30000;
 
-// Запрос онлайна через бэкенд (/api/online)
 async function updateServerStatus() {
     const badgeElement = document.querySelector('.ip-online-badge');
     if (!badgeElement) return;
 
     try {
-        const response = await fetch('/api/online');
+        const response = await fetch(`https://api.mcstatus.io/v2/status/java/${SERVER_IP}`);
         const data = await response.json();
 
         if (data.online) {
+            const online = data.players.online;
+            const max = data.players.max;
             badgeElement.innerHTML = `
-                ${DISPLAY_IP}
+                ${SERVER_IP}
                 <div class="ip-text" style="color: #00ff88; margin-top: 2px;">
-                    ● Онлайн: ${data.players} / ${data.max}
+                    ● Онлайн: ${online} / ${max}
                 </div>
             `;
         } else {
             badgeElement.innerHTML = `
-                ${DISPLAY_IP}
+                ${SERVER_IP}
                 <div class="ip-text" style="color: #ff4757; margin-top: 2px;">
                     ● Сервер офлайн
                 </div>
@@ -190,7 +161,7 @@ async function updateServerStatus() {
         }
     } catch (error) {
         badgeElement.innerHTML = `
-            ${DISPLAY_IP}
+            ${SERVER_IP}
             <div class="ip-text" style="color: #ffa500; margin-top: 2px;">
                 Кликни, чтобы скопировать IP
             </div>
@@ -198,15 +169,12 @@ async function updateServerStatus() {
     }
 }
 
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', () => {
-    renderCategory('privileges');
-    updateServerStatus();
-    setInterval(updateServerStatus, UPDATE_INTERVAL);
-
-    // Копирование IP в буфер обмена (теперь гарантированно привязывается после загрузки HTML)
-    document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(DISPLAY_IP);
-        alert(`IP-адрес ${DISPLAY_IP} скопирован в буфер обмена!`);
-    });
+document.querySelector('.ip-online-badge')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(SERVER_IP);
+    alert(`IP-адрес ${SERVER_IP} скопирован в буфер обмена!`);
 });
+
+// Инициализация
+renderCategory('privileges');
+updateServerStatus();
+setInterval(updateServerStatus, UPDATE_INTERVAL);
