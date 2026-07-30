@@ -459,11 +459,11 @@ input[type=number] {
 
 .btn-checkout:hover { opacity: 0.95; transform: translateY(-2px); }
 
-/* Футер */
+/* ФУТЕР (Обновленный дизайн) */
 .footer {
     background: #060a0f;
     border-top: 1px solid var(--border);
-    padding: 35px 8%;
+    padding: 30px 8%;
     margin-top: auto;
 }
 
@@ -472,42 +472,28 @@ input[type=number] {
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 30px;
-    flex-wrap: wrap;
+    align-items: center;
+    position: relative;
 }
 
+/* Пустой левый блок нужен для математического центрирования среднего элемента через flexbox */
 .footer-left {
-    max-width: 550px;
-    font-size: 13px;
+    flex: 1;
+}
+
+.footer-center {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
     color: var(--text-muted);
-    line-height: 1.6;
-}
-
-.footer-text p { margin-bottom: 4px; }
-
-.footer-links {
-    margin-top: 14px;
-    display: flex;
-    gap: 18px;
-    flex-wrap: wrap;
-}
-
-.footer-links a {
-    color: var(--primary-cyan);
-    text-decoration: none;
     font-weight: 600;
-    transition: opacity 0.2s;
-}
-
-.footer-links a:hover {
-    text-decoration: underline;
-    opacity: 0.8;
 }
 
 .footer-right {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 12px;
 }
 
@@ -561,13 +547,17 @@ input[type=number] {
         width: 100%;
     }
 
+    /* На мобилках выстраиваем футер вертикально: копирайт сверху, иконки снизу */
     .footer-container {
         flex-direction: column;
         align-items: center;
+        gap: 20px;
         text-align: center;
     }
 
-    .footer-links {
+    .footer-left, .footer-right, .footer-center {
+        flex: none;
+        width: 100%;
         justify-content: center;
     }
 }
